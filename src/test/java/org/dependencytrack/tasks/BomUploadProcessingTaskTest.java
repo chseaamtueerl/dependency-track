@@ -48,6 +48,7 @@ import org.dependencytrack.notification.NotificationScope;
 import org.dependencytrack.notification.vo.BomProcessingFailed;
 import org.dependencytrack.notification.vo.NewVulnerabilityIdentified;
 import org.dependencytrack.parser.spdx.json.SpdxLicenseDetailParser;
+import org.dependencytrack.persistence.QueryManager;
 import org.dependencytrack.search.document.ComponentDocument;
 import org.junit.After;
 import org.junit.Assert;
@@ -58,8 +59,11 @@ import jakarta.json.Json;
 import jakarta.json.JsonArray;
 import jakarta.json.JsonObject;
 import jakarta.json.JsonReader;
+import org.mockito.Mockito;
+
 import javax.jdo.JDOObjectNotFoundException;
 import java.io.StringReader;
+import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -104,6 +108,10 @@ public class BomUploadProcessingTaskTest extends PersistenceCapableTest {
 
     @Before
     public void setUp() {
+        // Uistite sa, že qm je inicializovaný
+        if (qm == null) {
+            qm = new QueryManager(); // Inicializujte qm, ak nie je už inicializovaný
+        }
         EventService.getInstance().subscribe(IndexEvent.class, EventSubscriber.class);
         EventService.getInstance().subscribe(RepositoryMetaEvent.class, EventSubscriber.class);
         EventService.getInstance().subscribe(VulnerabilityAnalysisEvent.class, EventSubscriber.class);
@@ -1539,4 +1547,79 @@ public class BomUploadProcessingTaskTest extends PersistenceCapableTest {
                 .untilAsserted(() -> assertThat(Event.isEventBeingProcessed(bomUploadEvent.getChainIdentifier())).isFalse());
     }
 
+    @Test
+    public void testProcessInvalidBom() throws InterruptedException {
+        final byte[] invalidBom = """
+            {
+              "bomFormat": "CycloneDX",
+              "version": 1
+              // Missing closing braces
+            """.getBytes(StandardCharsets.UTF_8);
+
+        Project project = qm.createProject("Test Project", null, "1.0", null, null, null, true, false);
+
+        BomUploadEvent event = new BomUploadEvent(qm.detach(Project.class, project.getId()), invalidBom);
+        new BomUploadProcessingTask().inform(event);
+
+        assertConditionWithTimeout(() -> NOTIFICATIONS.size() >= 1, Duration.ofSeconds(5));
+        Notification notification = NOTIFICATIONS.poll();
+        assertThat(notification.getGroup()).isEqualTo(NotificationGroup.BOM_PROCESSING_FAILED.name());
+        assertThat(notification.getLevel()).isEqualTo(NotificationLevel.ERROR);
+    }
+
+    @Test
+    public void testProcessEmptyProject() {
+        Project project = qm.createProject("Empty Project", null, "1.0", null, null, null, true, false);
+
+        BomUploadEvent event = new BomUploadEvent(qm.detach(Project.class, project.getId()), new byte[0]);
+        new BomUploadProcessingTask().inform(event);
+
+        qm.getPersistenceManager().refresh(project);
+        assertThat(project.getLastBomImport()).isNotNull();
+    }
+
+    @Test
+    public void testDatabaseFailureWithMock() throws Exception {
+        QueryManager mockQueryManager = Mockito.mock(QueryManager.class);
+        Mockito.doThrow(new RuntimeException("Database failure"))
+                .when(mockQueryManager)
+                .runInTransaction(Mockito.any());
+
+        Project project = qm.createProject("Mock Project", null, "1.0", null, null, null, true, false);
+
+        BomUploadEvent event = new BomUploadEvent(qm.detach(Project.class, project.getId()), new byte[0]);
+        BomUploadProcessingTask task = new BomUploadProcessingTask();
+
+        Field queryManagerField = BomUploadProcessingTask.class.getDeclaredField("qm");
+        queryManagerField.setAccessible(true);
+        queryManagerField.set(task, mockQueryManager);
+
+        task.inform(event);
+
+        assertConditionWithTimeout(() -> NOTIFICATIONS.size() >= 1, Duration.ofSeconds(5));
+        Notification notification = NOTIFICATIONS.poll();
+        assertThat(notification.getGroup()).isEqualTo(NotificationGroup.BOM_PROCESSING_FAILED.name());
+        assertThat(notification.getTitle()).contains("Database failure");
+    }
+
+    @Test
+    public void testProcessedBomNotifications() throws InterruptedException {
+        Project project = qm.createProject("Valid Project", null, "1.0", null, null, null, true, false);
+        final byte[] validBom = """
+            {
+              "bomFormat": "CycloneDX",
+              "specVersion": "1.4",
+              "serialNumber": "urn:uuid:1234",
+              "version": 1
+            }
+            """.getBytes(StandardCharsets.UTF_8);
+
+        BomUploadEvent event = new BomUploadEvent(qm.detach(Project.class, project.getId()), validBom);
+        new BomUploadProcessingTask().inform(event);
+
+        assertConditionWithTimeout(() -> NOTIFICATIONS.size() >= 2, Duration.ofSeconds(5));
+        assertThat(NOTIFICATIONS)
+                .extracting(Notification::getGroup)
+                .contains(NotificationGroup.BOM_CONSUMED.name(), NotificationGroup.BOM_PROCESSED.name());
+    }
 }

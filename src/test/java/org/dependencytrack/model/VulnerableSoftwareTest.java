@@ -20,6 +20,14 @@ package org.dependencytrack.model;
 
 import org.junit.Assert;
 import org.junit.Test;
+import org.junit.Assert;
+import org.junit.Test;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+import static org.mockito.Mockito.*;
 
 import java.util.UUID;
 
@@ -89,5 +97,116 @@ public class VulnerableSoftwareTest {
         VulnerableSoftware vs = new VulnerableSoftware();
         vs.setUuid(uuid);
         Assert.assertEquals(uuid.toString(), vs.getUuid().toString());
+    }
+
+
+        @Test
+        public void testEqualsIgnoringDatastoreIdentity() {
+            VulnerableSoftware vs1 = new VulnerableSoftware();
+            vs1.setPurl("pkg:maven/foo/bar@1.0.0");
+            vs1.setCpe23("cpe:2.3:a:foo:bar:1.0.0:*:*:*:*:java:*:*");
+            vs1.setVendor("foo");
+            vs1.setProduct("bar");
+            vs1.setVersion("1.0.0");
+
+            VulnerableSoftware vs2 = new VulnerableSoftware();
+            vs2.setPurl("pkg:maven/foo/bar@1.0.0");
+            vs2.setCpe23("cpe:2.3:a:foo:bar:1.0.0:*:*:*:*:java:*:*");
+            vs2.setVendor("foo");
+            vs2.setProduct("bar");
+            vs2.setVersion("1.0.0");
+
+            VulnerableSoftware vs3 = new VulnerableSoftware();
+            vs3.setPurl("pkg:maven/foo/baz@2.0.0");
+
+            Assert.assertTrue(vs1.equalsIgnoringDatastoreIdentity(vs2));
+            Assert.assertFalse(vs1.equalsIgnoringDatastoreIdentity(vs3));
+        }
+
+        @Test
+        public void testHashCodeWithoutDatastoreIdentity() {
+            VulnerableSoftware vs1 = new VulnerableSoftware();
+            vs1.setPurl("pkg:maven/foo/bar@1.0.0");
+            vs1.setVendor("foo");
+            vs1.setProduct("bar");
+
+            VulnerableSoftware vs2 = new VulnerableSoftware();
+            vs2.setPurl("pkg:maven/foo/bar@1.0.0");
+            vs2.setVendor("foo");
+            vs2.setProduct("bar");
+
+            VulnerableSoftware vs3 = new VulnerableSoftware();
+            vs3.setPurl("pkg:maven/foo/baz@2.0.0");
+
+            Assert.assertEquals(vs1.hashCodeWithoutDatastoreIdentity(), vs2.hashCodeWithoutDatastoreIdentity());
+            Assert.assertNotEquals(vs1.hashCodeWithoutDatastoreIdentity(), vs3.hashCodeWithoutDatastoreIdentity());
+        }
+
+        @Test
+        public void testToString() {
+            VulnerableSoftware vs = new VulnerableSoftware();
+            vs.setId(101);
+            vs.setPurl("pkg:maven/foo/bar@1.0.0");
+            vs.setCpe23("cpe:2.3:a:foo:bar:1.0.0:*:*:*:*:java:*:*");
+
+            String result = vs.toString();
+            Assert.assertTrue(result.contains("id=101"));
+            Assert.assertTrue(result.contains("purl=pkg:maven/foo/bar@1.0.0"));
+            Assert.assertTrue(result.contains("cpe23=cpe:2.3:a:foo:bar:1.0.0:*:*:*:*:java:*:*"));
+        }
+
+        @Test
+        public void testAddVulnerability() {
+            VulnerableSoftware vs = new VulnerableSoftware();
+            Vulnerability mockVulnerability = mock(Vulnerability.class);
+
+            Assert.assertNull(vs.getVulnerabilities());
+
+            vs.addVulnerability(mockVulnerability);
+
+            List<Vulnerability> vulnerabilities = vs.getVulnerabilities();
+            Assert.assertNotNull(vulnerabilities);
+            Assert.assertEquals(1, vulnerabilities.size());
+            Assert.assertEquals(mockVulnerability, vulnerabilities.get(0));
+        }
+
+        @Test
+        public void testAffectedVersionAttributions() {
+            VulnerableSoftware vs = new VulnerableSoftware();
+            List<AffectedVersionAttribution> attributions = new ArrayList<>();
+            attributions.add(new AffectedVersionAttribution());
+
+            Assert.assertNull(vs.getAffectedVersionAttributions());
+            vs.setAffectedVersionAttributions(attributions);
+
+            Assert.assertEquals(1, vs.getAffectedVersionAttributions().size());
+        }
+
+    @Test
+    public void testGetVulnerabilitiesWithMocks() {
+        VulnerableSoftware vs = new VulnerableSoftware();
+        Vulnerability mockVuln1 = mock(Vulnerability.class);
+        Vulnerability mockVuln2 = mock(Vulnerability.class);
+
+        UUID uuid1 = UUID.randomUUID();
+        UUID uuid2 = UUID.randomUUID();
+        when(mockVuln1.getUuid()).thenReturn(uuid1);
+        when(mockVuln2.getUuid()).thenReturn(uuid2);
+
+        vs.addVulnerability(mockVuln1);
+        vs.addVulnerability(mockVuln2);
+
+        List<Vulnerability> retrievedVulnerabilities = vs.getVulnerabilities();
+        Assert.assertNotNull(retrievedVulnerabilities);
+        Assert.assertEquals(2, retrievedVulnerabilities.size());
+
+        UUID retrievedUuid1 = retrievedVulnerabilities.get(0).getUuid();
+        UUID retrievedUuid2 = retrievedVulnerabilities.get(1).getUuid();
+
+        Assert.assertEquals(uuid1, retrievedUuid1);
+        Assert.assertEquals(uuid2, retrievedUuid2);
+
+        verify(mockVuln1, times(1)).getUuid();
+        verify(mockVuln2, times(1)).getUuid();
     }
 }

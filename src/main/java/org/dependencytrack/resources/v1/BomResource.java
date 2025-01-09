@@ -583,11 +583,28 @@ public class BomResource extends AlpineResource {
                 .encodeToString(bomBytes);
             dispatchBomValidationFailedNotification(project, bomEncoded, problemDetails.getErrors(), Format.CYCLONEDX);
 
+            if (isLenientValidationEnabled(project)) {
+                LOGGER.warn("Lenient validation failed: " + e.getMessage());
+                problemDetails.setDetail(e.getMessage());
+                return; // Logovanie a notifikácie, ale nevyhadzuje výnimku
+            }
+
             throw new WebApplicationException(problemDetails.toResponse());
         } catch (RuntimeException e) {
             LOGGER.error("Failed to validate BOM", e);
             final Response response = Response.status(Response.Status.INTERNAL_SERVER_ERROR).build();
             throw new WebApplicationException(response);
+        }
+    }
+
+    private static boolean isLenientValidationEnabled(Project project) {
+        try (final var qm = new QueryManager()) {
+            final ConfigProperty validationModeProperty = qm.getConfigProperty(
+                    BOM_VALIDATION_MODE.getGroupName(),
+                    BOM_VALIDATION_MODE.getPropertyName()
+            );
+
+            return BomValidationMode.LENIENT.name().equals(validationModeProperty.getPropertyValue());
         }
     }
 
@@ -607,12 +624,16 @@ public class BomResource extends AlpineResource {
                         Assuming default mode %s""".formatted(validationMode), e);
             }
 
-            if (validationMode == BomValidationMode.ENABLED) {
-                LOGGER.debug("Validating BOM because validation is enabled globally");
+            if (validationMode == BomValidationMode.STRICT) {
+                LOGGER.debug("Validating BOM because strict validation is enabled globally");
                 return true;
             } else if (validationMode == BomValidationMode.DISABLED) {
                 LOGGER.debug("Not validating BOM because validation is disabled globally");
                 return false;
+            }
+            if (validationMode == BomValidationMode.LENIENT) {
+                LOGGER.debug("Validating BOM because lenient validation is enabled globally");
+                return true; // logging and notifications will be enabled, SBOM will be imported
             }
 
             // Other modes depend on tags. Does the project even have tags?

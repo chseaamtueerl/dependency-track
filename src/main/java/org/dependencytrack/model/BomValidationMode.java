@@ -23,7 +23,9 @@ package org.dependencytrack.model;
  */
 public enum BomValidationMode {
 
-    ENABLED,
+    STRICT,
+
+    LENIENT,
 
     DISABLED,
 

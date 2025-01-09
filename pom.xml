@@ -151,6 +151,11 @@
                 <enabled>true</enabled>
             </snapshots>
         </repository>
+
+            <repository>
+                <id>mockito-repo</id>
+                <url>https://repo.maven.apache.org/maven2</url>
+            </repository>
     </repositories>
 
     <dependencies>
@@ -572,6 +577,12 @@
                         <artifactId>checkstyle</artifactId>
                         <version>${lib.checkstyle.version}</version>
                     </dependency>
+                    <dependency>
+                        <groupId>org.mockito</groupId>
+                        <artifactId>mockito-inline</artifactId>
+                        <version>4.8.0</version>
+                        <scope>compile</scope>
+                    </dependency>
                 </dependencies>
             </plugin>
             <plugin>
@@ -737,6 +748,15 @@
                         <containerIncludeJarPattern>^$</containerIncludeJarPattern>
                         <webInfIncludeJarPattern>^$</webInfIncludeJarPattern>
                     </webApp>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>21</source>
+                    <target>21</target>
+<!--                    <compilerArgs>&#45;&#45;enable-preview</compilerArgs>-->
                 </configuration>
             </plugin>
         </plugins>

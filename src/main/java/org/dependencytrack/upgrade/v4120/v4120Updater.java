@@ -103,7 +103,7 @@ public class v4120Updater extends AbstractUpgradeItem {
 
             final BomValidationMode validationModeValue = "false".equals(validationEnabledValue)
                     ? BomValidationMode.DISABLED
-                    : BomValidationMode.ENABLED;
+                    : BomValidationMode.STRICT;
 
             LOGGER.debug("Creating ConfigProperty %s:%s with value %s"
                     .formatted(BOM_VALIDATION_MODE.getGroupName(), BOM_VALIDATION_MODE.getPropertyName(), validationModeValue));

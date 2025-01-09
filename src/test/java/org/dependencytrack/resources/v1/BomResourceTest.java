@@ -1072,7 +1072,7 @@ public class BomResourceTest extends ResourceTest {
         qm.createConfigProperty(
                 BOM_VALIDATION_MODE.getGroupName(),
                 BOM_VALIDATION_MODE.getPropertyName(),
-                BomValidationMode.ENABLED.name(),
+                BomValidationMode.STRICT.name(),
                 BOM_VALIDATION_MODE.getPropertyType(),
                 BOM_VALIDATION_MODE.getDescription()
         );
@@ -1128,7 +1128,7 @@ public class BomResourceTest extends ResourceTest {
         qm.createConfigProperty(
                 BOM_VALIDATION_MODE.getGroupName(),
                 BOM_VALIDATION_MODE.getPropertyName(),
-                BomValidationMode.ENABLED.name(),
+                BomValidationMode.STRICT.name(),
                 BOM_VALIDATION_MODE.getPropertyType(),
                 BOM_VALIDATION_MODE.getDescription()
         );
